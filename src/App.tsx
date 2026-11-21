@@ -667,7 +667,7 @@ function App() {
               <Panel title="MT5 instance" sub="Identitas terminal yang mengirim telemetry">
                 {data.instance ? (
                   <div className="instance-grid">
-                    <div className="instance"><Monitor /><div><b>{data.instance.instance_name}</b><small>{data.instance.terminal_name || data.heartbeat?.terminal_name || 'Terminal'}</small></div><Badge tone={isOnline ? 'good' : 'bad'}>{statusText}</Badge></div>
+                    <div className="instance"><Monitor /><div><b>{data.instance.instance_name}</b><small>{data.heartbeat?.terminal_name || 'Terminal belum dilaporkan oleh EA'}</small></div><Badge tone={isOnline ? 'good' : 'bad'}>{statusText}</Badge></div>
                     <div className="instance"><Cpu /><div><b>{data.instance.broker || 'Broker not reported'}</b><small>{data.instance.platform || 'MT5'} · {data.instance.symbol || 'Symbol not reported'}</small></div><Badge tone="neutral">{data.heartbeat?.ea_version || 'EA version —'}</Badge></div>
                   </div>
                 ) : (
