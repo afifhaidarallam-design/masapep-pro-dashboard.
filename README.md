@@ -1,59 +1,48 @@
-# MASAPEP PRO — Trading Command Center (Phase 2 Frontend)
+# MASAPEP PRO — Phase 4.2: Existing-schema telemetry bridge
 
-Premium Dark Gold / Balanced / English UI. Built with React, TypeScript, Vite, Tailwind CSS and Recharts.
+This is an additive telemetry bridge for the user's existing Supabase schema. It does not execute trades or read dashboard commands.
 
-## Current delivery scope
-- Responsive desktop/tablet/mobile shell and 9 navigation areas.
-- Overview, live-position layout, market intelligence, signal center, performance charts, gold-news placeholders, EA command center, Telegram center and system settings.
-- Command review modal with safe preview behavior.
-- Complete MT5 timeframe selector: M1, M2, M3, M4, M5, M6, M10, M12, M15, M20, M30, H1, H2, H3, H4, H6, H8, H12, D1, W1 and MN1.
-- Multi-timeframe matrix, selectable period details, EA-source coverage indicators and pending-telemetry states.
-- Professional monitoring modules: risk/exposure, trend confluence, trading sessions, economic-event risk, execution quality, data integrity and audit.
-- All illustrative values are labeled DEMO / sample. No fabricated live MT5 or news data is presented as connected.
-- Frontend does not execute trades and does not change EA strategy/risk parameters.
+## Scope
+- Writes only `mt5_instances`, `ea_heartbeat`, and `account_snapshots`.
+- Uses existing column names: `account_ref`, `connection_status`, `floating_profit`, `drawdown_percent`.
+- Does not create or alter database tables.
+- Does not ingest positions, trade history, signals, or timeframe snapshots yet; those require exact column and unique-constraint verification.
+- `drawdown_percent` is NULL because the current EA has no verified persistent peak-equity baseline.
+- Dashboard command execution is not implemented.
 
-## Run locally
-1. Install Node.js 20 LTS or newer.
-2. Extract this ZIP and open the project folder in a terminal.
-3. Run `npm install`.
-4. Run `npm test`.
-5. Run `npm run dev` and open the local URL printed by Vite.
-6. Run `npm run build` before deployment.
+## Supabase Edge Function secrets
+Set these server-side:
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY` — server-side only; never put in EA, Netlify, browser, GitHub, or chat.
+- `MASAPEP_EA_INGEST_TOKEN` — dedicated random token, never reuse Telegram token.
+- `MASAPEP_USER_ID` — UUID of the intended owner from Supabase Auth.
+- `MASAPEP_ALLOWED_ACCOUNT_REFS` — comma-separated MT5 login(s) authorized for this token.
+- `MASAPEP_ALLOWED_ORIGINS` — exact dashboard origins, comma-separated.
 
-## Netlify
-- Build command: `npm run build`
-- Publish directory: `dist`
-- No environment variables are required for this visual/demo frontend.
-- For later Supabase work, set only `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` after Phase 3/5 is implemented. Never place secret/service_role keys or Telegram bot tokens in frontend variables.
+The endpoint verifies the EA token and account allowlist. It uses the configured `MASAPEP_USER_ID`, never a user_id supplied by the EA.
 
-## Deployment
-The `netlify.toml` file configures the SPA fallback. Connect the project repository to Netlify or upload the generated `dist` folder after a successful build.
+## Deploy
+Deploy `supabase/functions/mt5-telemetry` as Edge Function `mt5-telemetry`. Set the secrets above in Supabase. Do NOT run the ZIP's old SQL migrations on the existing database.
 
-## Important limitations
-This is the Phase 2 design system + Phase 4 frontend foundation, not the complete production platform. Supabase authentication/RLS, live database reads, Edge Functions, MT5 HTTPS telemetry/heartbeat/lease, Telegram web history, authenticated command queue, news providers and security audit are not yet implemented. Do not connect a live account or use this preview to send trading commands.
+## MT5 setup
+1. Compile `MASAPEP_V3_10_SUPABASE_TELEMETRY_BWK.mq5` in MetaEditor.
+2. MT5 > Tools > Options > Expert Advisors > Allow WebRequest for listed URL.
+3. Add the Supabase project origin, e.g. `https://YOUR_PROJECT_REF.supabase.co`.
+4. Attach to the intended DEMO XAUUSD chart first.
+5. Inputs > `17 SECURE SUPABASE TELEMETRY`:
+   - `InpEnableSupabaseTelemetry = true`
+   - `InpSupabaseTelemetryURL = https://YOUR_PROJECT_REF.supabase.co/functions/v1/mt5-telemetry`
+   - `InpSupabaseEAIngestToken =` dedicated ingest token
+   - `InpSupabaseInstanceName = PC-PRIMARY`
+   - interval 60 seconds; timeout 1500 ms.
+6. Keep existing Telegram inputs unchanged. Never share secrets in chat or screenshots.
 
-## Source of truth
-The MASAPEP EA remains authoritative for entry/exit logic, risk settings and trade execution. The frontend intentionally does not reimplement signal rules. The dashboard now displays all 21 standard MT5 timeframe choices. The inspected V3.09 EA source currently lists M1, M5, M15, M30 and H1 only. The other periods are visible in the dashboard but explicitly marked as not yet supplied by that EA source; real readings require a compatible additive EA telemetry update and backend integration.
+## Verification
+- Run `npm test`.
+- MetaEditor compilation is required; this environment cannot run MetaEditor, so compilation is not claimed.
+- In MT5 Experts tab, look for `MASAPEP Supabase telemetry terkirim. HTTP=200`.
+- Confirm new `ea_heartbeat` and `account_snapshots` rows for the intended instance.
+- Demo testing only until verified.
 
-
-## Phase 3.1 — Annual market history
-
-- Added historical range controls: 1D, 1W, 1M, 3M, 6M, 1Y, 3Y, 5Y, 10Y and ALL.
-- Added an Annual View specification. Y1 is derived by aggregating chronological MN1 monthly OHLC candles into one yearly OHLC candle; Y1 is not a native MT5 timeframe.
-- Added tested `aggregateMonthlyToAnnual()` utility, including empty and malformed input handling.
-- The annual chart intentionally shows no prices until a trusted historical feed is connected. The UI labels the feed as disconnected; no fabricated market values are used.
-- EA V3.09 is unchanged. Dashboard timeframe availability does not imply that the EA currently transmits all timeframe data.
-
-### Verification
-`npm test` runs 10 unit tests. `npm run build` has not been verified in this environment because frontend dependencies (React, Recharts, Lucide) are not installed; install dependencies with `npm install` before building.
-
-## Phase 4.1 — Secure Supabase database integration package
-- Added account-scoped RLS migration (`202611210002_account_scoped_rls.sql`) to replace broad authenticated reads with explicit `account_members` grants.
-- Added hardened telemetry Edge Function validation, token digest comparison, payload-size limit, configurable allowed origins, and generic server errors.
-- Added instructions for granting the first authenticated dashboard user access to a specific MT5 account.
-- This package is not deployed to the user's Supabase project. Apply migrations and deploy the function manually in the project dashboard; no project credentials are required in chat.
-- EA source is unchanged. No live telemetry will arrive until the additive EA sender is reviewed, compiled and tested on a demo account.
-
-
-## Phase 4.2 telemetry bridge
-See `supabase/README.md`. This additive Edge Function + EA source sends account/heartbeat telemetry only; command execution is intentionally disabled.
+## Next phase
+Add positions/trade history after verifying their exact columns and unique constraints. Add timeframe snapshots after verifying all columns and uniqueness key. Annual Y1 must be derived from real MN1 history, never fabricated.
