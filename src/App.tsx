@@ -4,6 +4,7 @@ import {Activity,ArrowDownRight,ArrowUpRight,Bell,Bot,CandlestickChart,Check,Che
 import {Area,AreaChart,Bar,BarChart,CartesianGrid,Cell,ResponsiveContainer,Tooltip,XAxis,YAxis} from 'recharts';
 import {formatMoney,formatPercent,formatSignedMoney,getWinRate} from './lib/formatters';
 import {timeframeGroups,eaConfiguredTimeframes,dashboardPeriods} from './lib/timeframes';
+import type { MT5Timeframe } from './lib/timeframes';
 
 type Page='Overview'|'Live Trading'|'Market Intelligence'|'Signal Center'|'Performance'|'Global Gold News'|'EA Command Center'|'Telegram Center'|'System Settings';
 
@@ -74,11 +75,28 @@ const [modal,setModal]=useState('');
 const [toast,setToast]=useState('');
 const [refresh,setRefresh]=useState('09:42:18 WIB');
 const [query,setQuery]=useState('');
-const [selectedTimeframe,setSelectedTimeframe]=useState<string>('M5');
+const [selectedTimeframe,setSelectedTimeframe]=useState<MT5Timeframe>('M5');
 const [historicalRange,setHistoricalRange]=useState('1Y');
 
 const winRate=useMemo(()=>getWinRate(42,18),[]);
 const navGroups=['WORKSPACE','INTELLIGENCE','ANALYTICS','CONTROL','SYSTEM'];
+
+const trendCards: { tf: MT5Timeframe; bias: string; state: string; strength: number }[] = [
+  { tf: 'M1', bias: 'Bullish', state: 'Early trigger', strength: 78 },
+  { tf: 'M5', bias: 'Bullish', state: 'Confirmation', strength: 72 },
+  { tf: 'M15', bias: 'Bullish', state: 'Structure', strength: 64 },
+  { tf: 'M30', bias: 'Neutral', state: 'Context', strength: 51 },
+  { tf: 'H1', bias: 'Bullish', state: 'Main trend filter', strength: 81 },
+  ...timeframeGroups
+    .flatMap((group) => group.items)
+    .filter((tf) => !eaConfiguredTimeframes.includes(tf))
+    .map((tf) => ({
+      tf,
+      bias: 'Unavailable',
+      state: 'Telemetry pending',
+      strength: 0,
+    })),
+];
 
 const showCommand=(c:string)=>setModal(c);
 
@@ -292,13 +310,14 @@ Workspace <ChevronRight size={14}/><b>{page}</b>
 
 <Panel title="Multi-timeframe trend overview" sub="Sample readings for the five periods currently listed in the inspected EA source; remaining periods await telemetry">
 <div className="trend-grid">
-{[['M1','Bullish','Early trigger',78],['M5','Bullish','Confirmation',72],['M15','Bullish','Structure',64],['M30','Neutral','Context',51],['H1','Bullish','Main trend filter',81],...timeframeGroups.flatMap(g=>g.items).filter(tf=>!eaConfiguredTimeframes.includes(tf)).map(tf=>[tf,'Unavailable','Telemetry pending',0])].map(([tf,bias,state,strength]:any)=>
+{trendCards.map(({tf,bias,state,strength})=>(
 <div className={`trend-card ${selectedTimeframe===tf?'focused':''}`} key={tf} onClick={()=>setSelectedTimeframe(tf)} role="button" tabIndex={0} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')setSelectedTimeframe(tf)}}>
 <div><b>{tf}</b><Badge tone={bias==='Bullish'?'good':bias==='Neutral'?'neutral':'warn'}>{bias}</Badge></div>
 <strong>{state}</strong>
 {strength>0?<div className="meter"><i style={{width:`${strength}%`}}/></div>:<div className="unavailable">No source data</div>}
 <small>{strength?`Illustrative momentum ${strength}/100`:'Waiting for EA telemetry'}</small>
-</div>)}
+</div>
+))}
 </div>
 </Panel>
 
